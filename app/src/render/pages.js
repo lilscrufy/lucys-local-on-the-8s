@@ -403,34 +403,67 @@ function moonPhaseKey(phase) {
 
 const ROTATION_OPTIONS = [10, 15, 20, 30];
 
-function renderSettings(page, { settings, controller, weatherStatus, onToggleAudio, onSetRotation }) {
-  const location = settings.location
-    ? `${settings.location.city}, ${settings.location.region || settings.location.zip}`
-    : 'Demo';
+function renderSettings(page, {
+  settings,
+  weatherStatus,
+  onSetAudio,
+  onSetRotation,
+  onSetUnits,
+  onSetScanlines,
+  onSetMotion,
+  onChangeLocation
+}) {
+  const location = settings.location;
+  const city = location?.city || 'Demo';
+  const region = location?.region || '';
+  const zip = location?.zip || '';
+  const hero = [
+    createElement('p', { className: 'wx-settings-hero__label', text: 'Station' }),
+    createElement('div', { className: 'wx-settings-hero__city', text: city })
+  ];
 
-  page.append(createElement('div', { className: 'wx-settings-grid' }, [
-    panel('Slide Speed', [
-      rotationControls(settings.rotationSeconds, onSetRotation),
-      createElement('p', { className: 'wx-settings-hint', text: 'Focus here, then Left / Right to change hold time.' })
-    ], 'wx-panel--speed'),
-    panel('Display', [
-      stat('Units', settings.units === 'metric' ? 'Metric' : 'Imperial'),
-      stat('Filter', settings.scanlines ? 'On' : 'Off'),
-      stat('Motion', settings.reducedMotion ? 'Reduced' : 'Full'),
-      stat('Music', settings.audioEnabled ? 'On' : 'Off'),
-      soundToggle(settings, onToggleAudio)
-    ], 'wx-panel--display'),
-    panel('Station', [
-      stat('Place', location),
-      stat('ZIP', settings.location?.zip || 'Unset'),
-      stat('Data', formatWeatherStatus(weatherStatus)),
-      stat('State', controller.paused ? 'Paused' : 'Playing'),
-      createElement('p', { className: 'wx-settings-hint', text: 'Yellow or L changes ZIP.' })
-    ], 'wx-panel--station'),
-    panel('Remote', [
-      createElement('p', { className: 'wx-settings-hint', text: 'Left / Right: pages, or slide speed when focused.' }),
-      createElement('p', { className: 'wx-settings-hint', text: 'Up / Down: focus   OK: pause or select   1-9: jump page.' })
-    ], 'wx-panel--remote')
+  if (region) {
+    hero.push(createElement('p', { className: 'wx-settings-hero__region', text: region }));
+  }
+
+  const meta = [zip, formatWeatherStatus(weatherStatus)].filter(Boolean).join('   ');
+  if (location && meta) {
+    hero.push(createElement('p', { className: 'wx-settings-hero__meta', text: meta }));
+  }
+
+  hero.push(settingsAction('settings-zip', location ? 'New ZIP' : 'Set ZIP', onChangeLocation));
+
+  page.append(createElement('div', { className: 'wx-settings-layout' }, [
+    createElement('section', { className: 'wx-settings-hero' }, hero),
+    createElement('section', { className: 'wx-settings-board' }, [
+      choiceRow('Units', [
+        choiceOption('units-f', '°F', settings.units !== 'metric', () => onSetUnits?.('imperial')),
+        choiceOption('units-c', '°C', settings.units === 'metric', () => onSetUnits?.('metric'))
+      ]),
+      choiceRow('Filter', [
+        choiceOption('filter-on', 'On', settings.scanlines, () => onSetScanlines?.(true)),
+        choiceOption('filter-off', 'Off', !settings.scanlines, () => onSetScanlines?.(false))
+      ]),
+      choiceRow('Motion', [
+        choiceOption('motion-full', 'Full', !settings.reducedMotion, () => onSetMotion?.(false)),
+        choiceOption('motion-off', 'Off', settings.reducedMotion, () => onSetMotion?.(true))
+      ]),
+      choiceRow('Music', [
+        choiceOption('music-on', 'On', settings.audioEnabled, () => onSetAudio?.(true)),
+        choiceOption('music-off', 'Off', !settings.audioEnabled, () => onSetAudio?.(false))
+      ])
+    ]),
+    createElement('section', { className: 'wx-settings-speed', attrs: { role: 'group', 'aria-label': 'Hold time' } }, [
+      createElement('h2', { className: 'wx-settings-speed__title', text: 'Hold Time' }),
+      createElement('div', { className: 'wx-settings-speed__options' }, ROTATION_OPTIONS.map((seconds) => (
+        choiceOption(
+          `rotation-${seconds}`,
+          `${seconds}s`,
+          settings.rotationSeconds === seconds,
+          () => onSetRotation?.(seconds)
+        )
+      )))
+    ])
   ]));
 }
 
@@ -445,76 +478,52 @@ function formatWeatherStatus(weatherStatus) {
   return labels[weatherStatus] || weatherStatus || 'Demo';
 }
 
-function rotationControls(currentSeconds, onSetRotation) {
-  const currentIndex = ROTATION_OPTIONS.indexOf(currentSeconds);
-  const slowerSeconds = currentIndex > 0
-    ? ROTATION_OPTIONS[currentIndex - 1]
-    : nearestRotationOption(currentSeconds, -1);
-  const fasterSeconds = currentIndex >= 0 && currentIndex < ROTATION_OPTIONS.length - 1
-    ? ROTATION_OPTIONS[currentIndex + 1]
-    : nearestRotationOption(currentSeconds, 1);
-
+function choiceRow(label, options) {
   return createElement('div', {
-    className: 'wx-rotation-control',
-    attrs: { role: 'group', 'aria-label': 'Slide speed' }
+    className: 'wx-choice-row',
+    attrs: { role: 'group', 'aria-label': label }
   }, [
-    rotationStepButton('Slower', 'rotation-slower', -1, slowerSeconds, onSetRotation),
-    createElement('div', {
-      className: 'wx-rotation-control__value',
-      text: `${currentSeconds} sec`,
-      attrs: { 'aria-live': 'polite' }
-    }),
-    rotationStepButton('Faster', 'rotation-faster', 1, fasterSeconds, onSetRotation)
+    createElement('span', { className: 'wx-choice-row__label', text: label }),
+    createElement('div', { className: 'wx-choice-row__options' }, options)
   ]);
 }
 
-function nearestRotationOption(currentSeconds, direction) {
-  if (direction < 0) {
-    return [...ROTATION_OPTIONS].reverse().find((seconds) => seconds < currentSeconds) || null;
-  }
-
-  return ROTATION_OPTIONS.find((seconds) => seconds > currentSeconds) || null;
-}
-
-function rotationStepButton(label, id, step, seconds, onSetRotation) {
+function choiceOption(id, label, active, onSelect) {
   const button = createElement('button', {
-    className: 'wx-rotation-control__button',
+    className: `wx-choice${active ? ' is-active' : ''}`,
     text: label,
     attrs: {
       type: 'button',
       id,
-      'data-rotation-step': String(step),
       'data-focus-id': id,
-      disabled: !seconds,
-      'aria-label': seconds ? `${label}: ${seconds} seconds` : `${label}: limit reached`
+      'aria-pressed': active ? 'true' : 'false'
     }
   });
 
   button.addEventListener('click', (event) => {
     event.preventDefault();
-    if (seconds) {
-      onSetRotation?.(seconds);
+    if (!active) {
+      onSelect?.();
     }
   });
 
   return button;
 }
 
-function soundToggle(settings, onToggleAudio) {
+function settingsAction(id, label, onSelect) {
   const button = createElement('button', {
-    className: 'wx-sound-toggle',
-    text: settings.audioEnabled ? 'Turn Music Off' : 'Turn Music On',
+    className: 'wx-choice wx-choice--action',
+    text: label,
     attrs: {
       type: 'button',
-      id: 'settings-sound-toggle',
-      'data-focus-id': 'settings-sound-toggle',
-      'aria-pressed': settings.audioEnabled ? 'true' : 'false'
+      id,
+      'data-focus-id': id
     }
   });
 
   button.addEventListener('click', (event) => {
     event.preventDefault();
-    onToggleAudio?.();
+    onSelect?.();
   });
 
   return button;

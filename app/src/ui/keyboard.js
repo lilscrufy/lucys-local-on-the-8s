@@ -98,7 +98,7 @@ function bindKeyboardControls({
       case 'medianexttrack':
       case 'n':
         event.preventDefault();
-        if (isArrowKey(key, keyCode, 'right') && adjustRotationControl(event.target, 1)) {
+        if (isArrowKey(key, keyCode, 'right') && adjustChoiceControl(event.target, 1)) {
           break;
         }
         if (isOverlayOpen?.() && isArrowKey(key, keyCode, 'right')) {
@@ -113,7 +113,7 @@ function bindKeyboardControls({
       case 'mediaprevioustrack':
       case 'p':
         event.preventDefault();
-        if (isArrowKey(key, keyCode, 'left') && adjustRotationControl(event.target, -1)) {
+        if (isArrowKey(key, keyCode, 'left') && adjustChoiceControl(event.target, -1)) {
           break;
         }
         if (isOverlayOpen?.() && isArrowKey(key, keyCode, 'left')) {
@@ -220,15 +220,17 @@ function isArrowKey(key, keyCode, direction) {
   return key === 'arrowright' || keyCode === 39;
 }
 
-function adjustRotationControl(target, direction) {
-  const control = target?.closest?.('.wx-rotation-control');
-  if (!control) {
+function adjustChoiceControl(target, direction) {
+  const group = target?.closest?.('.wx-choice-row__options, .wx-settings-speed__options');
+  if (!group) {
     return false;
   }
 
-  const step = control.querySelector(`[data-rotation-step="${direction}"]`);
-  if (step && !step.disabled) {
-    step.click();
+  const buttons = Array.from(group.querySelectorAll('button')).filter((button) => !button.disabled);
+  const index = buttons.indexOf(target);
+  const next = buttons[index + direction];
+  if (next) {
+    next.click();
   }
 
   return true;

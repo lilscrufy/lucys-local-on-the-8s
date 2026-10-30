@@ -111,8 +111,12 @@ function render() {
     radarBaseMap: appState.radarBaseMap,
     regionalBaseMap: appState.regionalBaseMap,
     weatherStatus: appState.weatherStatus,
-    onToggleAudio: toggleAudio,
-    onSetRotation: setRotationSeconds
+    onSetAudio: setAudioEnabled,
+    onSetRotation: setRotationSeconds,
+    onSetUnits: (units) => settings.update({ units }),
+    onSetScanlines: (scanlines) => settings.update({ scanlines }),
+    onSetMotion: (reducedMotion) => settings.update({ reducedMotion }),
+    onChangeLocation: openLocationSetup
   });
 
   renderHelpOverlay(stage.help, {
@@ -157,12 +161,6 @@ function restoreStageFocus(descriptor) {
   const target = findFocusTarget(stage.root, descriptor);
   if (target && !target.disabled) {
     target.focus();
-    return;
-  }
-
-  if (descriptor.value === 'rotation-slower' || descriptor.value === 'rotation-faster') {
-    const fallbackId = descriptor.value === 'rotation-slower' ? 'rotation-faster' : 'rotation-slower';
-    document.getElementById(fallbackId)?.focus();
   }
 }
 
@@ -583,9 +581,16 @@ function samePageOrder(first, second) {
 }
 
 function toggleAudio() {
-  const nextEnabled = !settings.get().audioEnabled;
-  settings.update({ audioEnabled: nextEnabled });
-  if (nextEnabled) {
+  setAudioEnabled(!settings.get().audioEnabled);
+}
+
+function setAudioEnabled(enabled) {
+  if (settings.get().audioEnabled === enabled) {
+    return;
+  }
+
+  settings.update({ audioEnabled: enabled });
+  if (enabled) {
     audioBed.setEnabled(true, { userGesture: true });
   }
 }
