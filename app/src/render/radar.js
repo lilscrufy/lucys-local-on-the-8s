@@ -440,87 +440,319 @@ function drawRegionalBoundaries(context, width, height) {
 }
 
 function drawRegionalStations(context, stations, settings, width, height, location) {
+  const shown = stations.slice(0, 4);
+  const anchors = shown.map((station, index) => stationAnchor(station, index, width, height, location));
+  const callouts = layoutRegionalCallouts(context, shown, anchors, width, height, location);
+
+  callouts.forEach((callout) => drawRegionalLeader(context, callout));
+  callouts.forEach((callout) => drawRegionalCallout(context, callout, settings));
+  callouts.forEach((callout) => drawStationDot(context, callout.anchor.x, callout.anchor.y));
+}
+
+function stationAnchor(station, index, width, height, location) {
   const fallbackPoints = [
     [0.18, 0.22], [0.48, 0.2], [0.74, 0.26], [0.22, 0.52],
     [0.52, 0.5], [0.78, 0.56], [0.32, 0.78], [0.66, 0.78]
   ];
-  const placedMarkers = [];
-
-  stations.slice(0, 4).forEach((station, index) => {
-    const projected = stationPoint(station, width, height, location);
-    const [xFactor, yFactor] = fallbackPoints[index];
-    const x = projected?.x ?? xFactor * width;
-    const y = projected?.y ?? yFactor * height;
-    const marker = regionalMarkerRect(context, station, x, y, width, height, placedMarkers);
-    placedMarkers.push(marker);
-
-    context.fillStyle = 'rgba(244, 240, 213, 0.88)';
-    context.strokeStyle = 'rgba(0, 0, 0, 0.72)';
-    context.lineWidth = 2;
-    context.beginPath();
-    context.arc(x, y, 4, 0, Math.PI * 2);
-    context.fill();
-    context.stroke();
-
-    context.strokeStyle = 'rgba(0, 0, 0, 0.52)';
-    context.lineWidth = 2;
-    context.beginPath();
-    context.moveTo(x, y);
-    context.lineTo(marker.x + 16, marker.y + 28);
-    context.stroke();
-
-    context.fillStyle = 'rgba(8, 14, 24, 0.76)';
-    context.strokeStyle = 'rgba(244, 240, 213, 0.56)';
-    context.lineWidth = 2;
-    context.fillRect(marker.x - 6, marker.y - 2, marker.width + 12, marker.height + 4);
-    context.strokeRect(marker.x - 6, marker.y - 2, marker.width + 12, marker.height + 4);
-
-    drawStationWeatherGlyph(context, station.condition, marker.x + 4, marker.y + 13);
-
-    context.font = '700 18px "Courier New", monospace';
-    context.fillStyle = '#f4f0d5';
-    context.strokeStyle = 'rgba(0, 0, 0, 0.86)';
-    context.lineWidth = 3;
-    context.strokeText(station.city, marker.x + 48, marker.y + 20);
-    context.fillText(station.city, marker.x + 48, marker.y + 20);
-
-    const temp = settings.units === 'metric'
-      ? `${Math.round((station.tempF - 32) * 5 / 9)}`
-      : `${Math.round(station.tempF)}`;
-    context.font = '700 25px "Courier New", monospace';
-    context.fillStyle = '#e7e85d';
-    context.strokeText(temp, marker.x + 50, marker.y + 47);
-    context.fillText(temp, marker.x + 50, marker.y + 47);
-  });
+  const projected = stationPoint(station, width, height, location);
+  const [xFactor, yFactor] = fallbackPoints[index] || [0.5, 0.5];
+  return {
+    x: projected ? projected.x : xFactor * width,
+    y: projected ? projected.y : yFactor * height
+  };
 }
 
-function regionalMarkerRect(context, station, x, y, width, height, placedMarkers) {
-  context.font = '700 18px "Courier New", monospace';
-  const markerWidth = clamp(context.measureText(station.city).width + 66, 126, 172);
-  const markerHeight = 54;
-  const candidates = [
-    [-96, -62], [30, -62], [-120, 22], [30, 22],
-    [-162, -20], [58, -20], [-58, -92], [-58, 50]
-  ];
-
-  const rects = candidates.map(([offsetX, offsetY]) => ({
-    x: clamp(x + offsetX, 20, width - markerWidth - 20),
-    y: clamp(y + offsetY, 24, height - markerHeight - 56),
-    width: markerWidth,
-    height: markerHeight
+function layoutRegionalCallouts(context, stations, anchors, width, height, location) {
+  const bounds = { left: 14, top: 36, right: width - 14, bottom: height - 54 };
+  const home = regionalHomeObstacle(context, location, width, height);
+  const dots = anchors.map((anchor) => ({
+    x: anchor.x - 7,
+    y: anchor.y - 7,
+    width: 14,
+    height: 14
   }));
+  const callouts = stations.map((station, index) => {
+    const city = station.city || '';
+    let fontSize = 18;
+    context.font = `700 ${fontSize}px "Courier New", monospace`;
+    while (fontSize > 13 && context.measureText(city).width > 150) {
+      fontSize -= 1;
+      context.font = `700 ${fontSize}px "Courier New", monospace`;
+    }
+    return {
+      station,
+      anchor: anchors[index],
+      fontSize,
+      rect: {
+        x: bounds.left,
+        y: bounds.top,
+        width: clamp(Math.ceil(context.measureText(city).width) + 64, 132, 214),
+        height: 58
+      }
+    };
+  });
+  const placed = [];
 
-  return rects.find((rect) => placedMarkers.every((placed) => !rectsOverlap(rect, placed))) || rects[0];
+  callouts
+    .map((callout, index) => ({ index, crowd: anchorCrowd(anchors, index) }))
+    .sort((first, second) => second.crowd - first.crowd)
+    .forEach(({ index }) => {
+      const callout = callouts[index];
+      let best = callout.rect;
+      let bestScore = Infinity;
+      regionalCalloutCandidates(callout, bounds).forEach((rect) => {
+        const score = scoreRegionalCallout(rect, callout.anchor, placed, home, dots);
+        if (score < bestScore) {
+          bestScore = score;
+          best = rect;
+        }
+      });
+      callout.rect = best;
+      placed.push(callout);
+    });
+
+  return callouts;
 }
 
-function rectsOverlap(first, second) {
-  const padding = 8;
-  return !(
-    first.x + first.width + padding < second.x
-    || second.x + second.width + padding < first.x
-    || first.y + first.height + padding < second.y
-    || second.y + second.height + padding < first.y
-  );
+function anchorCrowd(anchors, index) {
+  const anchor = anchors[index];
+  return anchors.reduce((total, other, otherIndex) => {
+    if (otherIndex === index) {
+      return total;
+    }
+    return total + 1 / (Math.hypot(anchor.x - other.x, anchor.y - other.y) + 1);
+  }, 0);
+}
+
+function regionalCalloutCandidates(callout, bounds) {
+  const boxWidth = callout.rect.width;
+  const boxHeight = callout.rect.height;
+  const anchor = callout.anchor;
+  const seen = new Set();
+  const rects = [];
+  const add = (x, y) => {
+    const rect = {
+      x: clamp(Math.round(x), bounds.left, Math.max(bounds.left, bounds.right - boxWidth)),
+      y: clamp(Math.round(y), bounds.top, Math.max(bounds.top, bounds.bottom - boxHeight)),
+      width: boxWidth,
+      height: boxHeight
+    };
+    const key = `${rect.x},${rect.y}`;
+    if (seen.has(key)) {
+      return;
+    }
+    seen.add(key);
+    rects.push(rect);
+  };
+
+  [22, 46, 78, 120, 170].forEach((gap) => {
+    const diagonal = gap / Math.SQRT2;
+    add(anchor.x - boxWidth / 2, anchor.y - gap - boxHeight);
+    add(anchor.x - boxWidth / 2, anchor.y + gap);
+    add(anchor.x - gap - boxWidth, anchor.y - boxHeight / 2);
+    add(anchor.x + gap, anchor.y - boxHeight / 2);
+    add(anchor.x - diagonal - boxWidth, anchor.y - diagonal - boxHeight);
+    add(anchor.x + diagonal, anchor.y - diagonal - boxHeight);
+    add(anchor.x - diagonal - boxWidth, anchor.y + diagonal);
+    add(anchor.x + diagonal, anchor.y + diagonal);
+  });
+
+  const midX = (bounds.left + bounds.right - boxWidth) / 2;
+  const midY = (bounds.top + bounds.bottom - boxHeight) / 2;
+  [
+    [bounds.left, bounds.top],
+    [midX, bounds.top],
+    [bounds.right - boxWidth, bounds.top],
+    [bounds.left, midY],
+    [bounds.right - boxWidth, midY],
+    [bounds.left, bounds.bottom - boxHeight],
+    [midX, bounds.bottom - boxHeight],
+    [bounds.right - boxWidth, bounds.bottom - boxHeight]
+  ].forEach(([x, y]) => add(x, y));
+
+  return rects;
+}
+
+function scoreRegionalCallout(rect, anchor, placed, home, dots) {
+  const target = closestPointOnRect(anchor, rect);
+  let score = Math.hypot(target.x - anchor.x, target.y - anchor.y);
+  if (score < 18) {
+    score += 4000;
+  }
+
+  placed.forEach((other) => {
+    const overlap = rectOverlapArea(rect, other.rect, 8);
+    if (overlap > 0) {
+      score += 100000 + overlap;
+    }
+    if (segmentHitsRect(anchor.x, anchor.y, target.x, target.y, other.rect)) {
+      score += 90000;
+    }
+    const otherTarget = closestPointOnRect(other.anchor, other.rect);
+    if (segmentsCross(
+      anchor.x, anchor.y, target.x, target.y,
+      other.anchor.x, other.anchor.y, otherTarget.x, otherTarget.y
+    )) {
+      score += 6000;
+    }
+  });
+
+  const homeOverlap = rectOverlapArea(rect, home, 8);
+  if (homeOverlap > 0) {
+    score += 100000 + homeOverlap;
+  }
+  if (!pointInRect(anchor.x, anchor.y, home)
+    && segmentHitsRect(anchor.x, anchor.y, target.x, target.y, home)) {
+    score += 40000;
+  }
+
+  dots.forEach((dot) => {
+    const overlap = rectOverlapArea(rect, dot, 3);
+    if (overlap > 0) {
+      score += 80000 + overlap;
+    }
+  });
+
+  return score;
+}
+
+function regionalHomeObstacle(context, location, width, height) {
+  const x = width * 0.5;
+  const y = height * 0.54;
+  const label = String(location.city || '').toUpperCase();
+  context.font = '700 15px "Courier New", monospace';
+  const textWidth = label ? context.measureText(label).width : 0;
+  const left = x - 14;
+  const right = Math.max(x + 14, x + 18 + textWidth);
+  return {
+    x: left,
+    y: y - 14,
+    width: right - left,
+    height: 28
+  };
+}
+
+function closestPointOnRect(anchor, rect) {
+  const right = rect.x + rect.width;
+  const bottom = rect.y + rect.height;
+  if (anchor.x > rect.x && anchor.x < right && anchor.y > rect.y && anchor.y < bottom) {
+    return [
+      { x: rect.x, y: anchor.y, distance: anchor.x - rect.x },
+      { x: right, y: anchor.y, distance: right - anchor.x },
+      { x: anchor.x, y: rect.y, distance: anchor.y - rect.y },
+      { x: anchor.x, y: bottom, distance: bottom - anchor.y }
+    ].sort((first, second) => first.distance - second.distance)[0];
+  }
+
+  return {
+    x: clamp(anchor.x, rect.x, right),
+    y: clamp(anchor.y, rect.y, bottom)
+  };
+}
+
+function pointInRect(x, y, rect) {
+  return x >= rect.x && x <= rect.x + rect.width && y >= rect.y && y <= rect.y + rect.height;
+}
+
+function rectOverlapArea(first, second, padding) {
+  const left = Math.max(first.x - padding, second.x);
+  const right = Math.min(first.x + first.width + padding, second.x + second.width);
+  const top = Math.max(first.y - padding, second.y);
+  const bottom = Math.min(first.y + first.height + padding, second.y + second.height);
+  if (right <= left || bottom <= top) {
+    return 0;
+  }
+  return (right - left) * (bottom - top);
+}
+
+function segmentsCross(ax, ay, bx, by, cx, cy, dx, dy) {
+  const direction = (px, py, qx, qy, rx, ry) => (qy - py) * (rx - qx) - (qx - px) * (ry - qy);
+  const first = direction(ax, ay, bx, by, cx, cy);
+  const second = direction(ax, ay, bx, by, dx, dy);
+  const third = direction(cx, cy, dx, dy, ax, ay);
+  const fourth = direction(cx, cy, dx, dy, bx, by);
+  if (first === 0 && second === 0 && third === 0 && fourth === 0) {
+    return false;
+  }
+  return (first > 0) !== (second > 0) && (third > 0) !== (fourth > 0);
+}
+
+function segmentHitsRect(x1, y1, x2, y2, rect) {
+  const right = rect.x + rect.width;
+  const bottom = rect.y + rect.height;
+  const edges = [
+    [rect.x, rect.y, right, rect.y],
+    [right, rect.y, right, bottom],
+    [right, bottom, rect.x, bottom],
+    [rect.x, bottom, rect.x, rect.y]
+  ];
+  return pointInRect(x1, y1, rect)
+    || pointInRect(x2, y2, rect)
+    || edges.some(([ex1, ey1, ex2, ey2]) => segmentsCross(x1, y1, x2, y2, ex1, ey1, ex2, ey2));
+}
+
+function drawRegionalLeader(context, callout) {
+  const anchor = callout.anchor;
+  const target = closestPointOnRect(anchor, callout.rect);
+  const dx = target.x - anchor.x;
+  const dy = target.y - anchor.y;
+  const length = Math.hypot(dx, dy) || 1;
+  if (length < 8) {
+    return;
+  }
+
+  context.save();
+  context.lineCap = 'round';
+  context.beginPath();
+  context.moveTo(anchor.x + (dx / length) * 7, anchor.y + (dy / length) * 7);
+  context.lineTo(target.x, target.y);
+  context.strokeStyle = 'rgba(0, 0, 0, 0.75)';
+  context.lineWidth = 4;
+  context.stroke();
+  context.strokeStyle = 'rgba(244, 240, 213, 0.9)';
+  context.lineWidth = 2;
+  context.stroke();
+  context.restore();
+}
+
+function drawRegionalCallout(context, callout, settings) {
+  const rect = callout.rect;
+  const station = callout.station;
+  context.fillStyle = 'rgba(8, 14, 24, 0.76)';
+  context.strokeStyle = 'rgba(244, 240, 213, 0.56)';
+  context.lineWidth = 2;
+  context.fillRect(rect.x, rect.y, rect.width, rect.height);
+  context.strokeRect(rect.x, rect.y, rect.width, rect.height);
+  context.save();
+  context.translate(rect.x + 7, rect.y + 17);
+  context.scale(0.42, 0.42);
+  drawStationWeatherGlyph(context, station.condition, 0, 0);
+  context.restore();
+
+  context.font = `700 ${callout.fontSize}px "Courier New", monospace`;
+  context.fillStyle = '#f4f0d5';
+  context.strokeStyle = 'rgba(0, 0, 0, 0.86)';
+  context.lineWidth = 3;
+  context.strokeText(station.city, rect.x + 42, rect.y + 22);
+  context.fillText(station.city, rect.x + 42, rect.y + 22);
+
+  const temp = settings.units === 'metric'
+    ? `${Math.round((station.tempF - 32) * 5 / 9)}`
+    : `${Math.round(station.tempF)}`;
+  context.font = '700 25px "Courier New", monospace';
+  context.fillStyle = '#e7e85d';
+  context.strokeText(temp, rect.x + 42, rect.y + 48);
+  context.fillText(temp, rect.x + 42, rect.y + 48);
+}
+
+function drawStationDot(context, x, y) {
+  context.fillStyle = 'rgba(244, 240, 213, 0.88)';
+  context.strokeStyle = 'rgba(0, 0, 0, 0.72)';
+  context.lineWidth = 2;
+  context.beginPath();
+  context.arc(x, y, 4, 0, Math.PI * 2);
+  context.fill();
+  context.stroke();
 }
 
 function stationPoint(station, width, height, location) {
