@@ -153,7 +153,7 @@ function renderExtended(page, { report, settings }) {
   page.append(createElement('div', { className: 'wx-day-grid' }, cards));
 }
 
-function renderRegional(page, { report, settings, regionalBaseMap }) {
+function renderRegional(page, { report, settings, regionalBaseMap, radar }) {
   const canvas = createElement('canvas', {
     className: 'wx-regional-map map-panel weather-map',
     attrs: {
@@ -163,7 +163,7 @@ function renderRegional(page, { report, settings, regionalBaseMap }) {
       'aria-label': 'Regional conditions map with nearby stations and precipitation shading'
     }
   });
-  drawRegionalMap(canvas, report, settings, { baseMap: regionalBaseMap });
+  drawRegionalMap(canvas, report, settings, { baseMap: regionalBaseMap, radar });
 
   const stations = report.regional.stations.slice(0, 4);
   page.append(createElement('div', { className: 'wx-regional-map-layout' }, [
@@ -204,8 +204,8 @@ function renderRadar(page, { report, settings, radar, radarBaseMap }) {
         }),
         stat('Source', 'RainViewer'),
         stat('Frame', frame.label || 'Waiting'),
-        stat('Storm Motion', usingLiveRadar ? 'Observed loop' : 'Pending'),
-        stat('Rainfall Rate', usingLiveRadar ? 'Radar returns' : 'Pending')
+        stat('Motion', usingLiveRadar ? 'Loop' : 'Pending'),
+        stat('Rate', usingLiveRadar ? 'Returns' : 'Pending')
       ])
     ])
   );

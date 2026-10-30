@@ -412,7 +412,7 @@ function mapLocationKey(location) {
 }
 
 function renderLoadedRadarFrame(requestId) {
-  if (requestId !== appState.radarRequestId || controller.currentPage !== 'radar') {
+  if (requestId !== appState.radarRequestId || !isMapPageVisible()) {
     return;
   }
 

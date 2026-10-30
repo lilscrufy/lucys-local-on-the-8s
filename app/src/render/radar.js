@@ -1,8 +1,18 @@
 (function () {
 var RetroWeather = window.RetroWeather || (window.RetroWeather = {});
+const { resolveWeatherIconKey } = RetroWeather;
+const regionalIconImages = new Map();
 const baseMapLayerCache = new WeakMap();
 let pixelCanvas = null;
 let pixelContext = null;
+const regionalIconPaths = {
+  sun: './assets/weather-icons/regional/sunny.gif',
+  partly: './assets/weather-icons/regional/partly.gif',
+  cloud: './assets/weather-icons/regional/cloud.gif',
+  rain: './assets/weather-icons/regional/rain.gif',
+  storm: './assets/weather-icons/regional/storm.gif',
+  fog: './assets/weather-icons/regional/fog.gif'
+};
 
 function drawRadar(canvas, frame, location, options = {}) {
   const context = canvas.getContext('2d');
@@ -188,14 +198,14 @@ function drawBaseMapLinework(context, width, height, baseMap) {
   return true;
 }
 
-function drawLiveRadarTile(context, width, height, image) {
-  const sourceZoom = 1.22;
+function drawLiveRadarTile(context, width, height, image, options = {}) {
+  const sourceZoom = options.sourceZoom ?? 1.22;
   const sourceWidth = image.naturalWidth / sourceZoom;
   const sourceHeight = image.naturalHeight / sourceZoom;
   const sourceX = (image.naturalWidth - sourceWidth) / 2;
   const sourceY = (image.naturalHeight - sourceHeight) / 2;
   context.save();
-  context.globalAlpha = 0.72;
+  context.globalAlpha = options.alpha ?? 0.72;
   context.imageSmoothingEnabled = false;
   const pixelWidth = Math.max(1, Math.round(width / 4));
   const pixelHeight = Math.max(1, Math.round(height / 4));
@@ -246,7 +256,7 @@ function drawMapLines(context) {
   context.strokeRect(10, 10, context.canvas.width - 20, context.canvas.height - 20);
 
   context.fillStyle = 'rgba(244, 240, 213, 0.78)';
-  context.font = '700 12px "Courier New", monospace';
+  context.font = '700 12px "Star4000", "Courier New", monospace';
   context.fillText('RDR PLOT', 18, 28);
   context.fillText('WX-88D', context.canvas.width - 74, 28);
 }
@@ -321,18 +331,21 @@ function drawRegionalMap(canvas, report, settings = {}, options = {}) {
   const stations = report.regional?.stations || [];
   const location = report.location || {};
   const precipitation = regionalPrecipitation(report);
+  const coverage = regionalCoverage(report, options.radar, width, height);
 
+  primeRegionalIcons(() => drawRegionalMap(canvas, report, settings, options));
   context.clearRect(0, 0, width, height);
-  const hasBaseMap = drawRegionalBackground(context, width, height, precipitation, options.baseMap);
+  const hasBaseMap = drawRegionalBackground(context, width, height, options.baseMap);
   if (!hasBaseMap) {
     drawRegionalBoundaries(context, width, height);
   }
+  drawRegionalCoverage(context, width, height, coverage);
   drawRegionalStations(context, stations, settings, width, height, location);
   drawRegionalHome(context, location, width, height);
-  drawRegionalFooter(context, width, height, precipitation, report.regional?.isDemo, hasBaseMap);
+  drawRegionalFooter(context, width, height, precipitation, report.regional?.isDemo, hasBaseMap, coverage.mode);
 }
 
-function drawRegionalBackground(context, width, height, precipitation, baseMap) {
+function drawRegionalBackground(context, width, height, baseMap) {
   context.fillStyle = '#2f4351';
   context.fillRect(0, 0, width, height);
 
@@ -342,7 +355,6 @@ function drawRegionalBackground(context, width, height, precipitation, baseMap) 
     tint: 'rgba(116, 113, 86, 0.1)',
     cacheKey: 'regional-bg'
   })) {
-    drawRegionalPrecipitation(context, width, height, precipitation);
     drawRegionalMachineGrid(context, width, height);
     context.strokeStyle = 'rgba(244, 240, 213, 0.3)';
     context.lineWidth = 1;
@@ -363,7 +375,6 @@ function drawRegionalBackground(context, width, height, precipitation, baseMap) 
   context.closePath();
   context.fill();
 
-  drawRegionalPrecipitation(context, width, height, precipitation);
   drawRegionalMachineGrid(context, width, height);
   return false;
 }
@@ -385,31 +396,61 @@ function drawRegionalMachineGrid(context, width, height) {
     context.stroke();
   }
   context.fillStyle = 'rgba(244, 240, 213, 0.78)';
-  context.font = '700 12px "Courier New", monospace';
+  context.font = '700 12px "Star4000", "Courier New", monospace';
   context.fillText('REGIONAL WX MACHINE', 20, 28);
   context.fillText('OBS GRID', width - 76, 28);
   context.restore();
 }
 
-function drawRegionalPrecipitation(context, width, height, precipitation) {
-  const rainAlpha = Math.max(0.1, Math.min(0.5, precipitation / 100));
-  context.fillStyle = `rgba(42, 170, 78, ${rainAlpha})`;
-  context.beginPath();
-  context.ellipse(width * 0.28, height * 0.52, width * 0.26, height * 0.2, -0.26, 0, Math.PI * 2);
-  context.fill();
-
-  if (precipitation > 35) {
-    context.fillStyle = 'rgba(236, 226, 78, 0.32)';
-    context.beginPath();
-    context.ellipse(width * 0.38, height * 0.44, width * 0.12, height * 0.09, -0.32, 0, Math.PI * 2);
-    context.fill();
+function regionalCoverage(report, radar, width, height) {
+  const readyFrames = (radar?.frames || []).filter((frame) => frame.imageStatus === 'ready' && frame.image);
+  if (readyFrames.length) {
+    return {
+      mode: 'radar',
+      image: readyFrames[readyFrames.length - 1].image
+    };
   }
 
-  if (precipitation > 55) {
-    context.fillStyle = 'rgba(232, 77, 54, 0.28)';
-    context.beginPath();
-    context.ellipse(width * 0.45, height * 0.38, width * 0.07, height * 0.05, -0.32, 0, Math.PI * 2);
-    context.fill();
+  const cells = regionalCoverageCells(report, width, height);
+  return {
+    mode: cells.length ? 'cells' : 'clear',
+    cells
+  };
+}
+
+function regionalCoverageCells(report, width, height) {
+  const frames = report.regional?.radarFrames || [];
+  const canned = frames[frames.length - 1]?.cells || [];
+  if (canned.length) {
+    return canned.map((cell) => ({
+      x: cell.x * (width / 820),
+      y: cell.y * (height / 420),
+      radius: cell.radius,
+      intensity: cell.intensity
+    }));
+  }
+
+  const precipitation = regionalPrecipitation(report);
+  if (precipitation < 8) {
+    return [];
+  }
+
+  const strength = Math.min(1, precipitation / 100);
+  return [
+    { x: width * 0.36, y: height * 0.5, radius: 68 + strength * 36, intensity: 0.32 + strength * 0.2 },
+    { x: width * 0.48, y: height * 0.4, radius: 40 + strength * 20, intensity: 0.4 + strength * 0.28 },
+    { x: width * 0.27, y: height * 0.6, radius: 34 + strength * 16, intensity: 0.24 + strength * 0.18 }
+  ];
+}
+
+function drawRegionalCoverage(context, width, height, coverage) {
+  if (coverage.mode === 'radar') {
+    drawLiveRadarTile(context, width, height, coverage.image, { sourceZoom: 1, alpha: 0.64 });
+    return;
+  }
+
+  if (coverage.mode === 'cells') {
+    drawCells(context, coverage.cells);
   }
 }
 
@@ -474,10 +515,10 @@ function layoutRegionalCallouts(context, stations, anchors, width, height, locat
   const callouts = stations.map((station, index) => {
     const city = station.city || '';
     let fontSize = 18;
-    context.font = `700 ${fontSize}px "Courier New", monospace`;
+    context.font = `700 ${fontSize}px "Star4000", "Courier New", monospace`;
     while (fontSize > 13 && context.measureText(city).width > 150) {
       fontSize -= 1;
-      context.font = `700 ${fontSize}px "Courier New", monospace`;
+      context.font = `700 ${fontSize}px "Star4000", "Courier New", monospace`;
     }
     return {
       station,
@@ -620,7 +661,7 @@ function regionalHomeObstacle(context, location, width, height) {
   const x = width * 0.5;
   const y = height * 0.54;
   const label = String(location.city || '').toUpperCase();
-  context.font = '700 15px "Courier New", monospace';
+  context.font = '700 15px "Star4000", "Courier New", monospace';
   const textWidth = label ? context.measureText(label).width : 0;
   const left = x - 14;
   const right = Math.max(x + 14, x + 18 + textWidth);
@@ -723,13 +764,9 @@ function drawRegionalCallout(context, callout, settings) {
   context.lineWidth = 2;
   context.fillRect(rect.x, rect.y, rect.width, rect.height);
   context.strokeRect(rect.x, rect.y, rect.width, rect.height);
-  context.save();
-  context.translate(rect.x + 7, rect.y + 17);
-  context.scale(0.42, 0.42);
-  drawStationWeatherGlyph(context, station.condition, 0, 0);
-  context.restore();
+  drawStationWeatherGlyph(context, station.condition, rect.x + 8, rect.y + 14);
 
-  context.font = `700 ${callout.fontSize}px "Courier New", monospace`;
+  context.font = `700 ${callout.fontSize}px "Star4000", "Courier New", monospace`;
   context.fillStyle = '#f4f0d5';
   context.strokeStyle = 'rgba(0, 0, 0, 0.86)';
   context.lineWidth = 3;
@@ -739,7 +776,7 @@ function drawRegionalCallout(context, callout, settings) {
   const temp = settings.units === 'metric'
     ? `${Math.round((station.tempF - 32) * 5 / 9)}`
     : `${Math.round(station.tempF)}`;
-  context.font = '700 25px "Courier New", monospace';
+  context.font = '700 25px "Star4000", "Courier New", monospace';
   context.fillStyle = '#e7e85d';
   context.strokeText(temp, rect.x + 42, rect.y + 48);
   context.fillText(temp, rect.x + 42, rect.y + 48);
@@ -777,49 +814,74 @@ function stationPoint(station, width, height, location) {
 
 function drawStationWeatherGlyph(context, condition, x, y) {
   const key = String(condition || '').toLowerCase();
+  const icon = regionalIconImages.get(resolveWeatherIconKey(condition));
+  if (icon?.complete && icon.naturalWidth > 0) {
+    context.save();
+    context.imageSmoothingEnabled = false;
+    context.drawImage(icon, x, y, 28, 24);
+    context.restore();
+    return;
+  }
+
+  const isStorm = key.includes('storm') || key.includes('thunder');
+  const isRain = key.includes('rain') || key.includes('shower') || key.includes('drizzle');
+  const isSun = key.includes('sun') || key.includes('clear') || key.includes('fair');
+  const isPartly = key.includes('part') || key.includes('mostly') || key.includes('break');
   context.save();
   context.translate(x, y);
 
+  if (isSun && !isRain && !isStorm && !isPartly) {
+    context.fillStyle = '#f1d254';
+    context.strokeStyle = 'rgba(0, 0, 0, 0.72)';
+    context.lineWidth = 2;
+    context.beginPath();
+    context.arc(13, 13, 9, 0, Math.PI * 2);
+    context.fill();
+    context.stroke();
+    context.restore();
+    return;
+  }
+
+  if (isSun || isPartly) {
+    context.fillStyle = '#f1d254';
+    context.beginPath();
+    context.arc(8, 8, 7, 0, Math.PI * 2);
+    context.fill();
+  }
+
   context.fillStyle = '#d9d9d9';
   context.strokeStyle = 'rgba(0, 0, 0, 0.72)';
-  context.lineWidth = 3;
+  context.lineWidth = 2;
   context.beginPath();
-  context.arc(28, 20, 15, Math.PI, 0);
-  context.arc(46, 18, 18, Math.PI, 0);
-  context.arc(62, 24, 12, Math.PI, 0);
-  context.lineTo(72, 32);
-  context.lineTo(18, 32);
+  context.arc(10, 16, 6, Math.PI, 0);
+  context.arc(16, 14, 7, Math.PI, 0);
+  context.arc(22, 17, 5, Math.PI, 0);
+  context.lineTo(26, 20);
+  context.lineTo(5, 20);
   context.closePath();
   context.fill();
   context.stroke();
 
-  if (key.includes('sun') || key.includes('clear') || key.includes('fair')) {
-    context.fillStyle = '#f1d254';
-    context.beginPath();
-    context.arc(22, 14, 14, 0, Math.PI * 2);
-    context.fill();
-  }
-
-  if (key.includes('rain') || key.includes('storm')) {
+  if (isRain || isStorm) {
     context.strokeStyle = '#83cfff';
-    context.lineWidth = 3;
-    [28, 45, 62].forEach((offset) => {
+    context.lineWidth = 2;
+    [10, 16, 22].forEach((offset) => {
       context.beginPath();
-      context.moveTo(offset, 38);
-      context.lineTo(offset - 10, 54);
+      context.moveTo(offset, 22);
+      context.lineTo(offset - 3, 28);
       context.stroke();
     });
   }
 
-  if (key.includes('storm') || key.includes('thunder')) {
+  if (isStorm) {
     context.fillStyle = '#f1d254';
     context.beginPath();
-    context.moveTo(51, 32);
-    context.lineTo(42, 52);
-    context.lineTo(54, 49);
-    context.lineTo(47, 68);
-    context.lineTo(68, 42);
-    context.lineTo(55, 45);
+    context.moveTo(18, 18);
+    context.lineTo(14, 26);
+    context.lineTo(19, 24);
+    context.lineTo(16, 32);
+    context.lineTo(25, 21);
+    context.lineTo(20, 23);
     context.closePath();
     context.fill();
   }
@@ -829,6 +891,23 @@ function drawStationWeatherGlyph(context, condition, x, y) {
 
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
+}
+
+function primeRegionalIcons(onReady) {
+  Object.entries(regionalIconPaths).forEach(([key, path]) => {
+    if (regionalIconImages.has(key)) {
+      return;
+    }
+
+    const image = new Image();
+    image.onload = () => {
+      if (typeof onReady === 'function') {
+        onReady();
+      }
+    };
+    image.src = path;
+    regionalIconImages.set(key, image);
+  });
 }
 
 function drawRegionalHome(context, location, width, height) {
@@ -844,18 +923,19 @@ function drawRegionalHome(context, location, width, height) {
   context.stroke();
 
   if (location.city) {
-    context.font = '700 15px "Courier New", monospace';
+    context.font = '700 15px "Star4000", "Courier New", monospace';
     context.fillStyle = '#f4f0d5';
     context.fillText(location.city.toUpperCase(), x + 14, y + 4);
   }
 }
 
-function drawRegionalFooter(context, width, height, precipitation, isDemo, hasBaseMap) {
+function drawRegionalFooter(context, width, height, precipitation, isDemo, hasBaseMap, coverageMode) {
+  const cover = coverageMode === 'radar' ? 'RDR COVER' : coverageMode === 'cells' ? 'CELL PLOT' : 'CLEAR SKY';
   context.fillStyle = 'rgba(0, 0, 0, 0.58)';
   context.fillRect(12, height - 48, width - 24, 36);
-  context.font = '700 17px "Courier New", monospace';
+  context.font = '700 17px "Star4000", "Courier New", monospace';
   context.fillStyle = '#f4f0d5';
-  context.fillText(`WX-MAP ${Math.round(precipitation)}% PRECIP  ${isDemo ? 'DEMO OBS' : 'NWS OBS'}  ${hasBaseMap ? 'BASE LOCK' : 'GRID BASE'}`, 28, height - 25);
+  context.fillText(`WX-MAP ${Math.round(precipitation)}% PRECIP  ${isDemo ? 'DEMO OBS' : 'NWS OBS'}  ${cover}  ${hasBaseMap ? 'BASE LOCK' : 'GRID BASE'}`, 28, height - 25);
 }
 
 function regionalPrecipitation(report) {

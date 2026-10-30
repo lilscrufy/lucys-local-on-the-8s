@@ -348,7 +348,7 @@ function renderLocationSetup(target, {
         className: 'wx-location-card__copy',
         text: status === 'loading'
           ? 'Contacting Open-Meteo...'
-          : 'Enter a US ZIP code with the number pad, then press OK or Enter.'
+          : 'Enter a 5-digit US ZIP, then press Enter.'
       }),
       form,
       error ? createElement('p', { className: 'wx-location-card__error', text: error }) : document.createTextNode(''),
