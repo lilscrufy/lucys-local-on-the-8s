@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-labelledby="title">
+  <title>Lucy's Local on the 8's icon</title>
+  <defs>
+    <linearGradient id="frame" x1="36" y1="22" x2="220" y2="234" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#5a64d6"/>
+      <stop offset="0.48" stop-color="#28319c"/>
+      <stop offset="1" stop-color="#bd7651"/>
+    </linearGradient>
+    <linearGradient id="panel" x1="48" y1="54" x2="208" y2="208" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#566f9f"/>
+      <stop offset="1" stop-color="#365386"/>
+    </linearGradient>
+  </defs>
+  <rect width="256" height="256" rx="28" fill="#050510"/>
+  <rect x="14" y="14" width="228" height="228" rx="24" fill="url(#frame)"/>
+  <rect x="31" y="34" width="194" height="170" rx="10" fill="url(#panel)" stroke="#dbe6ff" stroke-width="6"/>
+  <rect x="42" y="48" width="172" height="142" rx="4" fill="#28319c" opacity="0.72"/>
+  <path d="M58 96h140M58 132h140M58 168h140" stroke="#9df4ff" stroke-width="4" opacity="0.28"/>
+  <text x="128" y="86" fill="#f4f0d5" font-family="Arial Black, Impact, sans-serif" font-size="36" font-weight="900" text-anchor="middle">LUCY'S</text>
+  <text x="128" y="126" fill="#e7e85d" font-family="Arial Black, Impact, sans-serif" font-size="42" font-weight="900" text-anchor="middle">LOCAL</text>
+  <text x="128" y="164" fill="#f4f0d5" font-family="Arial Black, Impact, sans-serif" font-size="30" font-weight="900" text-anchor="middle">ON THE 8's</text>
+  <rect x="54" y="178" width="148" height="8" rx="4" fill="#ffcb4f"/>
+  <rect x="74" y="219" width="108" height="12" rx="6" fill="#66f0ff"/>
+</svg>

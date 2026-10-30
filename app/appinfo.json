@@ -1,0 +1,14 @@
+{
+  "id": "com.lilscrufy.retro-weather",
+  "version": "0.1.1",
+  "vendor": "lilscrufy",
+  "type": "web",
+  "main": "index.html",
+  "title": "Lucy's Local on the 8's",
+  "icon": "assets/images/icon.png",
+  "largeIcon": "assets/images/largeIcon.png",
+  "appDescription": "Vintage local weather channel display.",
+  "resolution": "1280x720",
+  "disableBackHistoryAPI": true,
+  "uiRevision": 3
+}
