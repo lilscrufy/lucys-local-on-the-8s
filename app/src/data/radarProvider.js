@@ -8,7 +8,22 @@ const RADAR_TILE_SIZE = 512;
 const RADAR_COLOR_SCHEME = 2;
 const RADAR_OPTIONS = '1_1';
 const BASEMAP_TILE_SIZE = 256;
-const BASEMAP_TILE_HOST = 'https://tile.openstreetmap.org';
+// Official tile.openstreetmap.org returns an Access Denied image when the
+// client has no HTTP Referer. Packaged webOS apps do not send one.
+const BASEMAP_TILE_SOURCES = [
+  {
+    name: 'OpenStreetMap.de',
+    url(zoom, x, y) {
+      return `https://tile.openstreetmap.de/${zoom}/${x}/${y}.png`;
+    }
+  },
+  {
+    name: 'OpenStreetMap.fr',
+    url(zoom, x, y) {
+      return `https://a.tile.openstreetmap.fr/osmfr/${zoom}/${x}/${y}.png`;
+    }
+  }
+];
 const FETCH_TIMEOUT_MS = 9000;
 
 function createRadarCache(storageKey) {
@@ -130,7 +145,9 @@ function buildBaseMap(location, options = {}) {
       tiles.push({
         x,
         y,
-        url: `${BASEMAP_TILE_HOST}/${zoom}/${wrappedX}/${y}.png`
+        zoom,
+        tileX: wrappedX,
+        url: BASEMAP_TILE_SOURCES[0].url(zoom, wrappedX, y)
       });
     }
   }
@@ -151,30 +168,42 @@ function preloadBaseMapTiles(baseMap, onTileReady) {
   }
 
   baseMap.tiles.forEach((tile) => {
-    if (!tile.url || tile.image) {
+    if (tile.image) {
       return;
     }
 
-    tile.imageStatus = 'loading';
-    const image = new Image();
-    image.decoding = 'async';
-    image.onload = () => {
-      tile.imageStatus = 'ready';
-      if (typeof onTileReady === 'function') {
-        onTileReady(tile);
-      }
-    };
-    image.onerror = () => {
-      tile.imageStatus = 'error';
-      if (typeof onTileReady === 'function') {
-        onTileReady(tile);
-      }
-    };
-    image.src = tile.url;
-    tile.image = image;
+    loadBaseMapTile(tile, 0, onTileReady);
   });
 
   return baseMap;
+}
+
+function loadBaseMapTile(tile, sourceIndex, onTileReady) {
+  const source = BASEMAP_TILE_SOURCES[sourceIndex];
+  if (!source || !Number.isFinite(tile.zoom) || !Number.isFinite(tile.tileX) || !Number.isFinite(tile.y)) {
+    tile.imageStatus = 'error';
+    if (typeof onTileReady === 'function') {
+      onTileReady(tile);
+    }
+    return;
+  }
+
+  tile.url = source.url(tile.zoom, tile.tileX, tile.y);
+  tile.imageStatus = 'loading';
+  const image = new Image();
+  image.decoding = 'async';
+  image.onload = () => {
+    tile.imageStatus = 'ready';
+    if (typeof onTileReady === 'function') {
+      onTileReady(tile);
+    }
+  };
+  image.onerror = () => {
+    tile.image = null;
+    loadBaseMapTile(tile, sourceIndex + 1, onTileReady);
+  };
+  image.src = tile.url;
+  tile.image = image;
 }
 
 function stripRadarImages(radar) {
