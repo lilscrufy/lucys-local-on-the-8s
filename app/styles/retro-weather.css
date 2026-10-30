@@ -604,7 +604,7 @@ body[data-noise="off"],
 .wx-layout--current,
 .wx-layout--almanac,
 .wx-layout--moon,
-.wx-settings-grid,
+.wx-settings-layout,
 .wx-radar-layout,
 .wx-regional-map-layout {
   display: grid;
@@ -1335,8 +1335,7 @@ body[data-noise="off"],
   display: none;
 }
 
-.wx-layout--moon .wx-panel,
-.wx-settings-grid .wx-panel {
+.wx-layout--moon .wx-panel {
   display: grid;
   gap: 13px;
 }
@@ -1369,91 +1368,155 @@ body[data-noise="off"],
   column-gap: 20px;
 }
 
-.wx-settings-grid {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  grid-auto-rows: minmax(0, 1fr);
-  gap: 14px;
+.wx-settings-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  grid-template-rows: minmax(0, 1fr) auto;
+  gap: 18px 24px;
+  pointer-events: auto;
 }
 
-.wx-settings-grid .wx-panel {
-  align-content: start;
+.wx-settings-hero,
+.wx-settings-board,
+.wx-settings-speed {
+  min-width: 0;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  text-shadow: var(--shadow-broadcast);
+}
+
+.wx-settings-hero {
+  display: grid;
+  align-content: center;
+  justify-items: center;
   gap: 8px;
-  padding: 12px 14px;
+  padding: 22px 18px 20px;
+  text-align: center;
   background:
-    radial-gradient(ellipse at 36% 18%, rgba(150, 158, 245, 0.32), transparent 44%),
-    linear-gradient(165deg, #5a64d6 0%, var(--star-card-blue) 58%, #1b236d 100%);
-  border: 3px solid #1c2178;
-  border-top-color: #a8aeff;
-  border-left-color: #858deb;
+    radial-gradient(ellipse at 50% 18%, rgba(157, 244, 255, 0.22), transparent 48%),
+    linear-gradient(165deg, #566f9f 0%, #27308f 58%, #16206b 100%);
+  border: 3px solid var(--star-panel-edge);
+  border-top-color: #eef4ff;
+  border-left-color: #eef4ff;
   box-shadow: var(--shadow-card);
 }
 
-.wx-settings-grid .wx-panel__title {
-  margin-bottom: 4px;
-  font-size: 24px;
+.wx-settings-hero__label,
+.wx-settings-hero__region,
+.wx-settings-hero__meta {
+  margin: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-transform: uppercase;
+}
+
+.wx-settings-hero__label,
+.wx-settings-hero__meta {
+  color: var(--star-text-soft);
+  font-size: 20px;
   line-height: 1;
 }
 
-.wx-settings-grid .metric,
-.wx-settings-grid .stat,
-.wx-settings-grid .weather-stat {
+.wx-settings-hero__city {
+  max-width: 100%;
+  overflow: hidden;
+  color: var(--star-title);
+  font-size: 56px;
+  line-height: 0.92;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-transform: uppercase;
+}
+
+.wx-settings-hero__region {
+  color: var(--star-text);
+  font-size: 28px;
+  line-height: 1;
+}
+
+.wx-settings-board {
   display: grid;
-  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
-  align-items: start;
-  column-gap: 12px;
-  row-gap: 3px;
-  padding: 0;
+  align-content: center;
+  gap: 12px;
 }
 
-.wx-settings-grid .metric-label,
-.wx-settings-grid .stat-label,
-.wx-settings-grid .metric-value,
-.wx-settings-grid .stat-value {
-  min-width: 0;
-  overflow-wrap: anywhere;
-  font-size: 20px;
-  line-height: 1.06;
+.wx-choice-row {
+  display: grid;
+  grid-template-columns: 6.4rem minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
 }
 
-.wx-settings-grid .metric-value,
-.wx-settings-grid .stat-value {
-  justify-self: start;
-  text-align: left;
-}
-
-.wx-settings-grid .metric-label,
-.wx-settings-grid .stat-label {
+.wx-choice-row__label {
   color: var(--star-text-soft);
-  white-space: normal;
+  font-size: 22px;
+  line-height: 1;
+  text-transform: uppercase;
 }
 
-.wx-rotation-control {
+.wx-choice-row__options,
+.wx-settings-speed__options {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 6px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
 }
 
-.wx-rotation-control__button {
+.wx-settings-speed {
+  grid-column: 1 / -1;
+}
+
+.wx-settings-speed__title {
+  margin: 0 0 8px;
+  color: var(--star-title);
+  font-size: 22px;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.wx-settings-speed__options {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.wx-settings-speed__options .wx-choice {
+  min-height: 62px;
+  font-size: 28px;
+}
+
+.wx-choice {
   min-width: 0;
-  padding: 6px 4px 5px;
+  min-height: 48px;
+  padding: 7px 8px 6px;
   color: var(--star-text);
   font-family: var(--font-mono);
-  font-size: 17px;
+  font-size: 22px;
   font-weight: 700;
   line-height: 1;
   text-align: center;
-  background: #1e287f;
-  border: 2px solid #858deb;
-  box-shadow: 2px 2px 0 rgba(5, 5, 16, 0.62);
+  text-transform: uppercase;
+  background: rgba(18, 26, 85, 0.72);
+  border: 2px solid rgba(219, 230, 255, 0.72);
+  box-shadow: 3px 3px 0 rgba(5, 5, 16, 0.52);
+  pointer-events: auto;
 }
 
-.wx-rotation-control__button.is-active {
+.wx-choice--action {
+  width: 100%;
+  max-width: 220px;
+  margin-top: 8px;
+  font-size: 20px;
+}
+
+.wx-choice.is-active,
+.wx-choice:focus,
+.wx-choice:focus-visible {
   color: #050510;
   background: var(--star-title);
   border-color: #f4f0d5;
 }
 
-.wx-settings-grid p,
 .wx-panel p,
 .wx-alert {
   margin: 0 0 8px;
@@ -1876,10 +1939,12 @@ body[data-noise="off"],
 .wx-location-form__button:focus,
 .music-status:focus,
 .wx-sound-toggle:focus,
+.wx-choice:focus,
 .wx-location-form__input:focus-visible,
 .wx-location-form__button:focus-visible,
 .music-status:focus-visible,
-.wx-sound-toggle:focus-visible {
+.wx-sound-toggle:focus-visible,
+.wx-choice:focus-visible {
   outline: 4px solid var(--star-title);
   outline-offset: 3px;
   box-shadow:
@@ -1899,7 +1964,7 @@ body[data-noise="off"],
 
 .wx-sound-toggle {
   grid-column: 1 / -1;
-  justify-self: start;
+  justify-self: stretch;
   min-height: 42px;
   margin-top: 4px;
   padding: 5px 14px;
@@ -2265,6 +2330,7 @@ body[data-noise="off"],
 
   .wx-layout--current,
   .wx-air-layout,
+  .wx-settings-layout,
   .wx-layout--moon {
     grid-template-columns: minmax(0, 1fr);
     gap: 10px;
@@ -2331,7 +2397,9 @@ body[data-noise="off"],
     text-align: left;
   }
 
-  .wx-air-layout {
+  .wx-air-layout,
+  .wx-settings-layout {
+    grid-template-columns: minmax(0, 1fr);
     grid-template-rows: auto auto auto;
   }
 
@@ -2343,11 +2411,24 @@ body[data-noise="off"],
     padding: 0;
   }
 
-  .wx-day-grid,
-  .wx-settings-grid {
+  .wx-day-grid {
     grid-template-columns: minmax(0, 1fr);
     grid-auto-rows: auto;
     gap: 8px;
+  }
+
+  .wx-settings-hero__city {
+    font-size: 36px;
+  }
+
+  .wx-choice-row {
+    grid-template-columns: 5.2rem minmax(0, 1fr);
+  }
+
+  .wx-choice,
+  .wx-choice--action {
+    min-height: 40px;
+    font-size: 16px;
   }
 
   .wx-day-card {

@@ -11,6 +11,8 @@ const {
   drawRadar,
   fetchOpenMeteoReport,
   fetchRainViewerRadar,
+  findFocusTarget,
+  focusDescriptor,
   preloadBaseMapTiles,
   preloadRadarFrames,
   renderChrome,
@@ -76,6 +78,7 @@ function render() {
   const currentSettings = settings.get();
   const currentPage = controller.currentPage;
   const report = appState.report;
+  const previousFocus = captureStageFocus();
 
   stage.root.dataset.paused = String(controller.paused);
   stage.root.dataset.scanlines = String(currentSettings.scanlines);
@@ -108,8 +111,12 @@ function render() {
     radarBaseMap: appState.radarBaseMap,
     regionalBaseMap: appState.regionalBaseMap,
     weatherStatus: appState.weatherStatus,
-    onToggleAudio: toggleAudio,
-    onSetRotation: setRotationSeconds
+    onSetAudio: setAudioEnabled,
+    onSetRotation: setRotationSeconds,
+    onSetUnits: (units) => settings.update({ units }),
+    onSetScanlines: (scanlines) => settings.update({ scanlines }),
+    onSetMotion: (reducedMotion) => settings.update({ reducedMotion }),
+    onChangeLocation: openLocationSetup
   });
 
   renderHelpOverlay(stage.help, {
@@ -129,6 +136,32 @@ function render() {
     onZipInput: updateZipDraft,
     onCancel: closeLocationSetup
   });
+
+  restoreStageFocus(previousFocus);
+}
+
+function captureStageFocus() {
+  const active = document.activeElement;
+  if (!active || appState.setupVisible || appState.helpVisible) {
+    return null;
+  }
+
+  if (!stage.root.contains(active) || stage.setup.contains(active) || stage.help.contains(active)) {
+    return null;
+  }
+
+  return focusDescriptor(active);
+}
+
+function restoreStageFocus(descriptor) {
+  if (!descriptor) {
+    return;
+  }
+
+  const target = findFocusTarget(stage.root, descriptor);
+  if (target && !target.disabled) {
+    target.focus();
+  }
 }
 
 function selectPage(pageId) {
@@ -548,9 +581,16 @@ function samePageOrder(first, second) {
 }
 
 function toggleAudio() {
-  const nextEnabled = !settings.get().audioEnabled;
-  settings.update({ audioEnabled: nextEnabled });
-  if (nextEnabled) {
+  setAudioEnabled(!settings.get().audioEnabled);
+}
+
+function setAudioEnabled(enabled) {
+  if (settings.get().audioEnabled === enabled) {
+    return;
+  }
+
+  settings.update({ audioEnabled: enabled });
+  if (enabled) {
     audioBed.setEnabled(true, { userGesture: true });
   }
 }

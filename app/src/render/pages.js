@@ -401,74 +401,129 @@ function moonPhaseKey(phase) {
   return 'full';
 }
 
-function renderSettings(page, { settings, controller, weatherStatus, onToggleAudio, onSetRotation }) {
-  const location = settings.location
-    ? `${settings.location.city}, ${settings.location.region || settings.location.zip}`
-    : 'Demo';
+const ROTATION_OPTIONS = [10, 15, 20, 30];
 
-  page.append(createElement('div', { className: 'wx-settings-grid' }, [
-    panel('Display', [
-      stat('Units', settings.units),
-      stat('Analog Filter', settings.scanlines ? 'On' : 'Off'),
-      stat('Reduced Motion', settings.reducedMotion ? 'On' : 'Off')
+function renderSettings(page, {
+  settings,
+  weatherStatus,
+  onSetAudio,
+  onSetRotation,
+  onSetUnits,
+  onSetScanlines,
+  onSetMotion,
+  onChangeLocation
+}) {
+  const location = settings.location;
+  const city = location?.city || 'Demo';
+  const region = location?.region || '';
+  const zip = location?.zip || '';
+  const hero = [
+    createElement('p', { className: 'wx-settings-hero__label', text: 'Station' }),
+    createElement('div', { className: 'wx-settings-hero__city', text: city })
+  ];
+
+  if (region) {
+    hero.push(createElement('p', { className: 'wx-settings-hero__region', text: region }));
+  }
+
+  const meta = [zip, formatWeatherStatus(weatherStatus)].filter(Boolean).join('   ');
+  if (location && meta) {
+    hero.push(createElement('p', { className: 'wx-settings-hero__meta', text: meta }));
+  }
+
+  hero.push(settingsAction('settings-zip', location ? 'New ZIP' : 'Set ZIP', onChangeLocation));
+
+  page.append(createElement('div', { className: 'wx-settings-layout' }, [
+    createElement('section', { className: 'wx-settings-hero' }, hero),
+    createElement('section', { className: 'wx-settings-board' }, [
+      choiceRow('Units', [
+        choiceOption('units-f', '°F', settings.units !== 'metric', () => onSetUnits?.('imperial')),
+        choiceOption('units-c', '°C', settings.units === 'metric', () => onSetUnits?.('metric'))
+      ]),
+      choiceRow('Filter', [
+        choiceOption('filter-on', 'On', settings.scanlines, () => onSetScanlines?.(true)),
+        choiceOption('filter-off', 'Off', !settings.scanlines, () => onSetScanlines?.(false))
+      ]),
+      choiceRow('Motion', [
+        choiceOption('motion-full', 'Full', !settings.reducedMotion, () => onSetMotion?.(false)),
+        choiceOption('motion-off', 'Off', settings.reducedMotion, () => onSetMotion?.(true))
+      ]),
+      choiceRow('Music', [
+        choiceOption('music-on', 'On', settings.audioEnabled, () => onSetAudio?.(true)),
+        choiceOption('music-off', 'Off', !settings.audioEnabled, () => onSetAudio?.(false))
+      ])
     ]),
-    panel('Playback', [
-      stat('Rotation', `${settings.rotationSeconds} sec`),
-      rotationControls(settings.rotationSeconds, onSetRotation),
-      stat('State', controller.paused ? 'Paused' : 'Playing'),
-      stat('Music', settings.audioEnabled ? 'On' : 'Off'),
-      soundToggle(settings, onToggleAudio)
-    ]),
-    panel('Weather', [
-      stat('Location', location),
-      stat('ZIP', settings.location?.zip || 'Unset'),
-      stat('Data', weatherStatus || 'Mock'),
-      createElement('p', { text: 'Press Yellow or L to change ZIP' })
-    ]),
-    panel('Remote', [
-      createElement('p', { text: 'Left / Right: previous / next' }),
-      createElement('p', { text: 'Up / Down: move focus' }),
-      createElement('p', { text: 'OK: pause or select' }),
-      createElement('p', { text: 'Numbers: ZIP or page jump' })
+    createElement('section', { className: 'wx-settings-speed', attrs: { role: 'group', 'aria-label': 'Hold time' } }, [
+      createElement('h2', { className: 'wx-settings-speed__title', text: 'Hold Time' }),
+      createElement('div', { className: 'wx-settings-speed__options' }, ROTATION_OPTIONS.map((seconds) => (
+        choiceOption(
+          `rotation-${seconds}`,
+          `${seconds}s`,
+          settings.rotationSeconds === seconds,
+          () => onSetRotation?.(seconds)
+        )
+      )))
     ])
   ]));
 }
 
-function rotationControls(currentSeconds, onSetRotation) {
-  const options = [10, 15, 20, 30];
-  return createElement('div', { className: 'wx-rotation-control', attrs: { role: 'group', 'aria-label': 'Rotation speed' } }, options.map((seconds) => {
-    const isCurrent = currentSeconds === seconds;
-    const button = createElement('button', {
-      className: `wx-rotation-control__button${isCurrent ? ' is-active' : ''}`,
-      text: `${seconds}s`,
-      attrs: {
-        type: 'button',
-        'aria-pressed': isCurrent ? 'true' : 'false'
-      }
-    });
+function formatWeatherStatus(weatherStatus) {
+  const labels = {
+    live: 'Live',
+    loading: 'Loading',
+    mock: 'Demo',
+    error: 'Error'
+  };
 
-    button.addEventListener('click', (event) => {
-      event.preventDefault();
-      onSetRotation?.(seconds);
-    });
-
-    return button;
-  }));
+  return labels[weatherStatus] || weatherStatus || 'Demo';
 }
 
-function soundToggle(settings, onToggleAudio) {
+function choiceRow(label, options) {
+  return createElement('div', {
+    className: 'wx-choice-row',
+    attrs: { role: 'group', 'aria-label': label }
+  }, [
+    createElement('span', { className: 'wx-choice-row__label', text: label }),
+    createElement('div', { className: 'wx-choice-row__options' }, options)
+  ]);
+}
+
+function choiceOption(id, label, active, onSelect) {
   const button = createElement('button', {
-    className: 'wx-sound-toggle',
-    text: settings.audioEnabled ? 'Turn Music Off' : 'Turn Music On',
+    className: `wx-choice${active ? ' is-active' : ''}`,
+    text: label,
     attrs: {
       type: 'button',
-      'aria-pressed': settings.audioEnabled ? 'true' : 'false'
+      id,
+      'data-focus-id': id,
+      'aria-pressed': active ? 'true' : 'false'
     }
   });
 
   button.addEventListener('click', (event) => {
     event.preventDefault();
-    onToggleAudio?.();
+    if (!active) {
+      onSelect?.();
+    }
+  });
+
+  return button;
+}
+
+function settingsAction(id, label, onSelect) {
+  const button = createElement('button', {
+    className: 'wx-choice wx-choice--action',
+    text: label,
+    attrs: {
+      type: 'button',
+      id,
+      'data-focus-id': id
+    }
+  });
+
+  button.addEventListener('click', (event) => {
+    event.preventDefault();
+    onSelect?.();
   });
 
   return button;

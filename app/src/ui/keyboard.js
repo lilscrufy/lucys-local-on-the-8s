@@ -98,7 +98,10 @@ function bindKeyboardControls({
       case 'medianexttrack':
       case 'n':
         event.preventDefault();
-        if (isOverlayOpen?.() && (key === 'arrowright' || keyCode === 39)) {
+        if (isArrowKey(key, keyCode, 'right') && adjustChoiceControl(event.target, 1)) {
+          break;
+        }
+        if (isOverlayOpen?.() && isArrowKey(key, keyCode, 'right')) {
           onMoveFocus?.(1);
         } else {
           onNext();
@@ -110,7 +113,10 @@ function bindKeyboardControls({
       case 'mediaprevioustrack':
       case 'p':
         event.preventDefault();
-        if (isOverlayOpen?.() && (key === 'arrowleft' || keyCode === 37)) {
+        if (isArrowKey(key, keyCode, 'left') && adjustChoiceControl(event.target, -1)) {
+          break;
+        }
+        if (isOverlayOpen?.() && isArrowKey(key, keyCode, 'left')) {
           onMoveFocus?.(-1);
         } else {
           onPrevious();
@@ -204,6 +210,30 @@ function isTextEntry(target) {
 
 function isOkKey(key, keyCode) {
   return key === 'enter' || key === ' ' || keyCode === 13 || keyCode === 32;
+}
+
+function isArrowKey(key, keyCode, direction) {
+  if (direction === 'left') {
+    return key === 'arrowleft' || keyCode === 37;
+  }
+
+  return key === 'arrowright' || keyCode === 39;
+}
+
+function adjustChoiceControl(target, direction) {
+  const group = target?.closest?.('.wx-choice-row__options, .wx-settings-speed__options');
+  if (!group) {
+    return false;
+  }
+
+  const buttons = Array.from(group.querySelectorAll('button')).filter((button) => !button.disabled);
+  const index = buttons.indexOf(target);
+  const next = buttons[index + direction];
+  if (next) {
+    next.click();
+  }
+
+  return true;
 }
 
 function activateFocusedControl(target) {
