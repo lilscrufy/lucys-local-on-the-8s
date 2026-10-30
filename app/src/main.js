@@ -11,6 +11,8 @@ const {
   drawRadar,
   fetchOpenMeteoReport,
   fetchRainViewerRadar,
+  findFocusTarget,
+  focusDescriptor,
   preloadBaseMapTiles,
   preloadRadarFrames,
   renderChrome,
@@ -76,6 +78,7 @@ function render() {
   const currentSettings = settings.get();
   const currentPage = controller.currentPage;
   const report = appState.report;
+  const previousFocus = captureStageFocus();
 
   stage.root.dataset.paused = String(controller.paused);
   stage.root.dataset.scanlines = String(currentSettings.scanlines);
@@ -129,6 +132,38 @@ function render() {
     onZipInput: updateZipDraft,
     onCancel: closeLocationSetup
   });
+
+  restoreStageFocus(previousFocus);
+}
+
+function captureStageFocus() {
+  const active = document.activeElement;
+  if (!active || appState.setupVisible || appState.helpVisible) {
+    return null;
+  }
+
+  if (!stage.root.contains(active) || stage.setup.contains(active) || stage.help.contains(active)) {
+    return null;
+  }
+
+  return focusDescriptor(active);
+}
+
+function restoreStageFocus(descriptor) {
+  if (!descriptor) {
+    return;
+  }
+
+  const target = findFocusTarget(stage.root, descriptor);
+  if (target && !target.disabled) {
+    target.focus();
+    return;
+  }
+
+  if (descriptor.value === 'rotation-slower' || descriptor.value === 'rotation-faster') {
+    const fallbackId = descriptor.value === 'rotation-slower' ? 'rotation-faster' : 'rotation-slower';
+    document.getElementById(fallbackId)?.focus();
+  }
 }
 
 function selectPage(pageId) {

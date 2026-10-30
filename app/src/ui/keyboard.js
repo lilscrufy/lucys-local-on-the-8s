@@ -98,7 +98,10 @@ function bindKeyboardControls({
       case 'medianexttrack':
       case 'n':
         event.preventDefault();
-        if (isOverlayOpen?.() && (key === 'arrowright' || keyCode === 39)) {
+        if (isArrowKey(key, keyCode, 'right') && adjustRotationControl(event.target, 1)) {
+          break;
+        }
+        if (isOverlayOpen?.() && isArrowKey(key, keyCode, 'right')) {
           onMoveFocus?.(1);
         } else {
           onNext();
@@ -110,7 +113,10 @@ function bindKeyboardControls({
       case 'mediaprevioustrack':
       case 'p':
         event.preventDefault();
-        if (isOverlayOpen?.() && (key === 'arrowleft' || keyCode === 37)) {
+        if (isArrowKey(key, keyCode, 'left') && adjustRotationControl(event.target, -1)) {
+          break;
+        }
+        if (isOverlayOpen?.() && isArrowKey(key, keyCode, 'left')) {
           onMoveFocus?.(-1);
         } else {
           onPrevious();
@@ -204,6 +210,28 @@ function isTextEntry(target) {
 
 function isOkKey(key, keyCode) {
   return key === 'enter' || key === ' ' || keyCode === 13 || keyCode === 32;
+}
+
+function isArrowKey(key, keyCode, direction) {
+  if (direction === 'left') {
+    return key === 'arrowleft' || keyCode === 37;
+  }
+
+  return key === 'arrowright' || keyCode === 39;
+}
+
+function adjustRotationControl(target, direction) {
+  const control = target?.closest?.('.wx-rotation-control');
+  if (!control) {
+    return false;
+  }
+
+  const step = control.querySelector(`[data-rotation-step="${direction}"]`);
+  if (step && !step.disabled) {
+    step.click();
+  }
+
+  return true;
 }
 
 function activateFocusedControl(target) {

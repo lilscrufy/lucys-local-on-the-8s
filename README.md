@@ -48,6 +48,7 @@ stops the animated effects; the Settings page shows both states.
 | Action | Keyboard | LG remote |
 | --- | --- | --- |
 | Next / previous page | `→` / `←` | Right / Left, or Channel Down / Up |
+| Change slide speed when focused | `→` / `←` | Right / Left |
 | Select a page | `1`–`9` | Number keys outside ZIP setup |
 | Move focus in setup and controls | `↑` / `↓` | Up / Down |
 | Activate focused button or pause playback | `Enter` / `Space` | OK |

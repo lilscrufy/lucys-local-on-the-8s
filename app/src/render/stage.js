@@ -249,7 +249,7 @@ function renderHelpOverlay(target, { visible, pages, currentPage, settings }) {
       text: 'Left and right change pages. OK pauses or activates focused controls. Back closes panels.'
     }),
     createElement('dl', { className: 'retro-help__keys' }, [
-      keyDef('Left/Right', 'change page'),
+      keyDef('Left/Right', 'page, or slide speed'),
       keyDef('Up/Down', 'move focus'),
       keyDef('OK/Enter', 'pause or select'),
       keyDef('Back/Esc', 'close or exit'),
@@ -375,6 +375,10 @@ function focusDescriptor(element) {
     return { type: 'id', value: element.id };
   }
 
+  if (element.getAttribute?.('data-focus-id')) {
+    return { type: 'focusId', value: element.getAttribute('data-focus-id') };
+  }
+
   if (element.tagName === 'BUTTON') {
     return { type: 'buttonText', value: element.textContent };
   }
@@ -389,6 +393,10 @@ function findFocusTarget(root, descriptor) {
 
   if (descriptor.type === 'id') {
     return root.querySelector(`#${descriptor.value}`);
+  }
+
+  if (descriptor.type === 'focusId') {
+    return root.querySelector(`[data-focus-id="${descriptor.value}"]`);
   }
 
   if (descriptor.type === 'buttonText') {
@@ -416,6 +424,8 @@ function formatDate(date) {
 
 Object.assign(RetroWeather, {
   createStage,
+  findFocusTarget,
+  focusDescriptor,
   renderChrome,
   renderClock,
   renderHelpOverlay,
