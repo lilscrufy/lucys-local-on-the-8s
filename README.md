@@ -4,6 +4,8 @@ A vintage local weather channel for browsers and LG webOS TVs. Enter a US ZIP
 code, tune in, and let the forecast rotate. Built as a static web app with no
 framework, account, or application build step.
 
+**Live site:** [localonthe8s.app](https://localonthe8s.app/)
+
 ![Three day outlook in demo mode](docs/screenshots/three-day-outlook.png)
 
 ## Explore the channel
@@ -79,16 +81,6 @@ when a service is unavailable. Sound is optional and starts after interaction.
 
 The browser preview also serves as a remote simulator. Open the controls panel
 with `?` to see page numbers and remote shortcuts while the app is running.
-
-## Put it on the web
-
-This repo includes a GitHub Pages workflow that publishes **only `app/`**. With
-the repository public and Pages set to **GitHub Actions** in Settings → Pages,
-the site can appear at `https://lilscrufy.github.io/lucys-local-on-the-8s/` after
-the workflow runs. GitHub Pages supports this on GitHub Free; the default URL
-does not require buying a domain. A custom domain is optional. The app calls
-weather providers directly from each visitor's browser, so this hosting path
-does not require a server or API key.
 
 ## Put it on an LG TV
 
