@@ -82,6 +82,15 @@ when a service is unavailable. Sound is optional and starts after interaction.
 The browser preview also serves as a remote simulator. Open the controls panel
 with `?` to see page numbers and remote shortcuts while the app is running.
 
+## Add it to your iPad Home Screen
+
+Open [localonthe8s.app](https://localonthe8s.app/) in Safari, tap **Share**,
+then **Add to Home Screen** (under **More** or **View More** if needed).
+Keep **Open as Web App** enabled if shown, then tap **Add**. The saved app uses
+the custom retro TV icon and opens in its own window. Landscape works best.
+If you saved the site before the icon was added, remove that Home Screen
+shortcut and add it again.
+
 ## Put it on an LG TV
 
 Follow [the Developer Mode installation guide](docs/INSTALL_ON_LG_TV.md). The
